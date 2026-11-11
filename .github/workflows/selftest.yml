@@ -2,6 +2,7 @@ name: selftest
 
 on:
   pull_request:
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -17,7 +18,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Lint the runner
-        run: shellcheck actions/run-tests/run-tests.sh
+        run: shellcheck -x -P SCRIPTDIR actions/run-tests/run-tests.sh
       - name: A passing project passes
         uses: ./actions/run-tests
         with:
