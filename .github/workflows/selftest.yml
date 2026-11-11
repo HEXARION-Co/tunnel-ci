@@ -1,0 +1,58 @@
+name: selftest
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Lint the runner
+        run: shellcheck actions/run-tests/run-tests.sh
+      - name: A passing project passes
+        uses: ./actions/run-tests
+        with:
+          workdir: selftest/ok
+      - name: The container is isolated (user, network, filesystem, secrets, docker socket)
+        uses: ./actions/run-tests
+        with:
+          workdir: selftest/isolation
+      - name: A failing project fails
+        id: failing
+        continue-on-error: true
+        uses: ./actions/run-tests
+        with:
+          workdir: selftest/fail
+      - name: A runaway command is stopped by the timeout
+        id: runaway
+        continue-on-error: true
+        uses: ./actions/run-tests
+        with:
+          workdir: selftest/ok
+          test-command: sleep 60
+          timeout-seconds: "3"
+      - name: An unpinned image is refused
+        id: unpinned
+        continue-on-error: true
+        shell: bash
+        run: |
+          cp -r actions/run-tests /tmp/harness-copy
+          echo "IMAGE=python:3.12-slim" > /tmp/harness-copy/image.lock
+          TUNNEL_TEST_COMMAND=true bash /tmp/harness-copy/run-tests.sh
+      - name: The failures above were real failures
+        shell: bash
+        env:
+          FAILING: ${{ steps.failing.outcome }}
+          RUNAWAY: ${{ steps.runaway.outcome }}
+          UNPINNED: ${{ steps.unpinned.outcome }}
+        run: |
+          [ "$FAILING" = failure ] && [ "$RUNAWAY" = failure ] && [ "$UNPINNED" = failure ]

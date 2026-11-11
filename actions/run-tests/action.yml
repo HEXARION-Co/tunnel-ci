@@ -1,0 +1,28 @@
+name: tunnel-run-tests
+description: Lance les tests d'un repo dans le conteneur verrouillé du Tunnel (sans réseau, sans secret, lecture seule).
+inputs:
+  test-command:
+    description: Commande de test exécutée dans le conteneur.
+    required: false
+    default: python -m unittest discover -s tests -v
+  timeout-seconds:
+    description: Durée maximale (1 à 3600).
+    required: false
+    default: "600"
+  workdir:
+    description: Répertoire du repo à tester.
+    required: false
+    default: "."
+runs:
+  using: composite
+  steps:
+    - name: Run tests in the hardened container
+      shell: bash
+      env:
+        TUNNEL_TEST_COMMAND: ${{ inputs.test-command }}
+        TUNNEL_TIMEOUT: ${{ inputs.timeout-seconds }}
+        TUNNEL_WORKDIR: ${{ inputs.workdir }}
+        TUNNEL_HARNESS: ${{ github.action_repository }}@${{ github.action_ref }}
+      run: |
+        echo "tunnel-ci harness: $TUNNEL_HARNESS"
+        bash "$GITHUB_ACTION_PATH/run-tests.sh"
